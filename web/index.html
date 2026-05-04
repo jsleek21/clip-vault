@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clip Vault</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Clip Vault</h1>
+    <nav id="main-nav" class="hidden">
+      <button class="nav-btn active" data-view="inbox">
+        Inbox <span id="inbox-badge" class="badge"></span>
+      </button>
+      <button class="nav-btn" data-view="library">Library</button>
+      <button class="nav-btn" data-view="search">Search</button>
+    </nav>
+  </header>
+
+
+  <!-- ── Inbox view ── -->
+  <div id="inbox-view" class="view hidden">
+    <div id="clip-grid-wrap">
+      <p id="clip-grid-empty" class="center-msg muted hidden">
+        No untagged clips. Drop an .mkv in your watch folder.
+      </p>
+      <div id="clip-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── Library view ── -->
+  <div id="library-view" class="view hidden">
+    <div id="library-filter-bar"></div>
+    <div id="tagged-grid"></div>
+  </div>
+
+  <!-- ── Search view ── -->
+  <div id="search-view" class="view hidden">
+    <div id="search-home">
+      <h2 id="search-title">Search Jsleek21 clips</h2>
+      <div class="search-bar">
+        <input id="search-input" type="text" placeholder="Ask anything about your clips…" autocomplete="off" />
+        <button id="search-btn">Search</button>
+      </div>
+      <div id="search-suggestions"></div>
+      <div id="recent-searches-wrap" class="hidden">
+        <p class="recent-label muted">Recent</p>
+        <div id="recent-searches"></div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- ── Video modal ── -->
+  <div id="video-modal" class="hidden">
+    <div id="modal-backdrop"></div>
+    <div id="modal-content">
+      <button id="modal-close" class="icon-btn">✕</button>
+      <video id="modal-embed" controls playsinline></video>
+      <div class="preview-bar">
+        <p id="modal-filename" class="muted small"></p>
+        <a id="modal-drive-link" href="#" target="_blank" rel="noopener" class="drive-link">Open ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Category color-picker modal ── -->
+  <div id="cat-modal" class="hidden">
+    <div id="cat-modal-backdrop"></div>
+    <div id="cat-modal-box">
+      <p class="cat-modal-title">New Category</p>
+      <input id="cat-modal-name" type="text" placeholder="Category name…" autocomplete="off" />
+      <div id="cat-modal-colors">
+        <button class="color-swatch" data-color="#ef4444" style="background:#ef4444" title="Red"></button>
+        <button class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" title="Blue"></button>
+        <button class="color-swatch" data-color="#22c55e" style="background:#22c55e" title="Green"></button>
+        <button class="color-swatch" data-color="#f59e0b" style="background:#f59e0b" title="Amber"></button>
+        <button class="color-swatch" data-color="#a855f7" style="background:#a855f7" title="Purple"></button>
+        <button class="color-swatch" data-color="#ec4899" style="background:#ec4899" title="Pink"></button>
+        <button class="color-swatch" data-color="#0096ff" style="background:#0096ff" title="Accent"></button>
+      </div>
+      <div class="cat-modal-actions">
+        <button id="cat-modal-cancel">Cancel</button>
+        <button id="cat-modal-add" class="primary">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tagger panel (shared — works from inbox and library) ── -->
+  <aside id="tagger-panel" class="hidden">
+    <button id="panel-close" class="icon-btn" title="Close">✕</button>
+
+    <div id="panel-preview">
+      <video id="clip-embed" controls playsinline></video>
+      <div class="preview-bar">
+        <p id="clip-original-name" class="muted small"></p>
+        <a id="clip-drive-link" href="#" target="_blank" rel="noopener" class="drive-link">Open ↗</a>
+      </div>
+    </div>
+
+    <div id="tag-form">
+      <div class="field">
+        <label for="game-input">Game / Context</label>
+        <input id="game-input" type="text" placeholder="e.g. KingdomHearts" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <div id="category-chips"></div>
+      </div>
+
+      <div class="field">
+        <label>Tags <span class="muted">(optional — press Enter to add)</span></label>
+        <div id="tag-input-area" class="tag-input-wrap"></div>
+      </div>
+
+      <div class="field">
+        <label for="desc-input">Description slug</label>
+        <input id="desc-input" type="text" list="desc-suggestions"
+               placeholder="e.g. dies-to-tutorial-boss" autocomplete="off" />
+        <datalist id="desc-suggestions"></datalist>
+      </div>
+
+      <div class="field">
+        <label for="notes-input">Notes <span class="muted">(optional)</span></label>
+        <textarea id="notes-input" rows="2" placeholder="Any extra context…"></textarea>
+      </div>
+
+      <div id="filename-preview"></div>
+
+      <div class="actions">
+        <button id="skip-btn">Skip</button>
+        <button id="confirm-btn" class="primary" disabled>Confirm &amp; Tag</button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="toast"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

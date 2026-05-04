@@ -1,0 +1,13 @@
+﻿# Watcher secrets — never commit these
+watcher/.env
+watcher/__pycache__/
+watcher/*.pyc
+**/__pycache__/
+**/*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local video cache
+clips_served/
