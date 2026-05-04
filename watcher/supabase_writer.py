@@ -44,6 +44,7 @@ def insert_pending_clip(
     drive_url: str,
     duration: int | None,
     thumbnail_url: str | None = None,
+    transcription: str | None = None,
 ) -> str | None:
     """
     Insert a pending (untagged) clip row into Supabase.
@@ -65,6 +66,7 @@ def insert_pending_clip(
         "thumbnail_url": thumbnail_url,
         "tagged_by": None,
         "notes": None,
+        "transcription": transcription,
     }
 
     url = f"{Config.SUPABASE_URL.rstrip('/')}/rest/v1/clips"

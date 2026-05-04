@@ -34,6 +34,11 @@ class Config:
     # ── Local video server ────────────────────────────────────────
     LOCAL_VIDEO_PORT = int(os.getenv("LOCAL_VIDEO_PORT", "7432"))
 
+    # ── Transcription (faster-whisper, runs locally) ──────────────
+    # Model size: tiny / base / small / medium / large-v3
+    # small is a good balance of speed and accuracy; medium for better results
+    WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
+
     # ── Legacy (no longer used, kept so old .env files don't crash) ──
     GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
     DELETE_MP4_AFTER_UPLOAD = False  # files are moved to CLIPS_FOLDER, never deleted

@@ -22,14 +22,14 @@ serve(async (req) => {
     // FTS candidates
     const { data: fts } = await sb
       .from("clips")
-      .select("id,filename,game,categories,description,date,drive_url,notes")
+      .select("id,filename,game,categories,subcategories,description,date,drive_url,notes,transcription")
       .textSearch("search_vector", query, { type: "websearch" })
       .limit(30);
 
     // Recent clips as fallback context
     const { data: recent } = await sb
       .from("clips")
-      .select("id,filename,game,categories,description,date,drive_url")
+      .select("id,filename,game,categories,subcategories,description,date,drive_url,transcription")
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -42,6 +42,12 @@ serve(async (req) => {
     });
 
     if (!clips.length) return json([]);
+
+    // Truncate transcriptions so context stays manageable
+    const clipsForClaude = clips.map((c) => ({
+      ...c,
+      transcription: c.transcription ? c.transcription.slice(0, 400) + (c.transcription.length > 400 ? "…" : "") : null,
+    }));
 
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -61,7 +67,7 @@ serve(async (req) => {
         ].join(" "),
         messages: [{
           role:    "user",
-          content: `Query: "${query}"\n\nClips:\n${JSON.stringify(clips, null, 2)}`,
+          content: `Query: "${query}"\n\nClips:\n${JSON.stringify(clipsForClaude, null, 2)}`,
         }],
       }),
     });

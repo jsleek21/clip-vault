@@ -27,6 +27,7 @@ from config import Config
 from r2_uploader import R2Uploader
 from remuxer import extract_thumbnail_b64, get_duration, process_to_mp4
 from supabase_writer import clip_exists, insert_pending_clip
+from transcriber import transcribe
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +150,9 @@ def worker(job_queue: queue.Queue, uploader: R2Uploader, set_status):
             duration      = get_duration(mp4_path)
             thumbnail_url = extract_thumbnail_b64(mp4_path)
 
+            set_status(f"Transcribing  {Path(mp4_path).name}")
+            transcription = transcribe(mp4_path)
+
             set_status(f"Uploading  {Path(mp4_path).name}")
             r2_url = uploader.upload(mp4_path)
 
@@ -159,7 +163,7 @@ def worker(job_queue: queue.Queue, uploader: R2Uploader, set_status):
             shutil.move(mp4_path, dest)
 
             if r2_url:
-                insert_pending_clip(Path(dest).name, r2_url, duration, thumbnail_url)
+                insert_pending_clip(Path(dest).name, r2_url, duration, thumbnail_url, transcription)
                 set_status(f"Done  {dest.name}")
             else:
                 set_status("Upload failed — saved locally only")
