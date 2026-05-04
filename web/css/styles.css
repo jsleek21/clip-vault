@@ -254,6 +254,39 @@ header h1 { font-size: .95rem; font-weight: 600; letter-spacing: .04em; }
 }
 .drive-link:hover { text-decoration: underline; }
 
+/* ── Transcription box ───────────────────────────────────────── */
+#transcription-box {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+#transcription-box summary {
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  padding: .45rem 1.1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+#transcription-box summary::before {
+  content: '▶';
+  font-size: .6rem;
+  transition: transform .15s;
+}
+#transcription-box[open] summary::before { transform: rotate(90deg); }
+#transcription-box summary:hover { color: var(--text); }
+#transcription-text {
+  padding: .5rem 1.1rem .75rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  font-size: .78rem;
+}
+
 #tag-form {
   padding: .9rem 1.1rem 1rem;
   display: flex;
@@ -408,6 +441,120 @@ button.primary       { background: var(--accent); border-color: var(--accent); c
 button.primary:hover { filter: brightness(1.1); }
 button:disabled      { opacity: .4; cursor: not-allowed; filter: none; }
 button.large         { font-size: .95rem; padding: .65rem 2rem; }
+
+/* ── Flag button ─────────────────────────────────────────────── */
+.card-flag-btn {
+  position: absolute;
+  top: .3rem; right: 1.9rem;
+  background: rgba(0,0,0,.6);
+  border: none;
+  border-radius: 4px;
+  font-size: .7rem;
+  padding: .15rem .3rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  line-height: 1;
+  filter: grayscale(1);
+}
+.clip-card:hover .card-flag-btn { opacity: 1; }
+.card-flag-btn.active { opacity: 1; filter: none; }
+
+/* ── Select mode ─────────────────────────────────────────────── */
+#inbox-select-btn {
+  margin: 0 0 .6rem auto;
+  display: block;
+}
+.select-toggle       { margin-left: auto; }
+.clip-card.multi-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.clip-card.flagged { border-color: #f59e0b; }
+
+.select-check {
+  position: absolute;
+  top: .35rem; left: .35rem;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.5);
+  background: rgba(0,0,0,.5);
+  font-size: .7rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.clip-card.multi-selected .select-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+#select-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 100;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  white-space: nowrap;
+}
+#select-count { font-size: .85rem; color: var(--muted); }
+.select-bar-actions { display: flex; gap: .5rem; }
+button.danger       { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.danger:hover { filter: brightness(1.1); }
+
+/* ── Review view ─────────────────────────────────────────────── */
+#review-view {
+  height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+#review-header {
+  padding: .7rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#review-grid {
+  flex: 1;
+  padding: 1rem 1.1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: .75rem;
+  align-content: start;
+}
+.review-card-actions {
+  display: flex;
+  gap: .4rem;
+  padding: .4rem .6rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.approve-btn {
+  flex: 1;
+  font-size: .75rem;
+  padding: .3rem .5rem;
+  background: rgba(34,197,94,.15);
+  border-color: rgba(34,197,94,.4);
+  color: var(--success);
+}
+.approve-btn:hover { background: rgba(34,197,94,.25); }
+.review-delete {
+  position: static;
+  opacity: 1;
+  font-size: .75rem;
+  padding: .3rem .5rem;
+}
 
 /* ── Library view ────────────────────────────────────────────── */
 #library-view { height: calc(100vh - var(--header-h)); overflow: hidden; }

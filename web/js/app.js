@@ -1,7 +1,8 @@
 import { getToken } from './auth.js';
 import {
-  fetchUntaggedClips, fetchTaggedClips, updateClip, deleteClip,
+  fetchUntaggedClips, fetchTaggedClips, updateClip, deleteClip, deleteClips,
   fetchDescriptions, fetchTaxonomy, createTaxonomyItem,
+  fetchReviewClips, setReviewFlag,
 } from './supabase-client.js';
 import {
   fileIdFromUrl, getVideoUrl, isDirectUrl, downloadVideoBlob,
@@ -13,12 +14,15 @@ const state = {
   view:         'inbox',
   untagged:     [],
   tagged:       [],
+  review:       [],
   taxonomy:     [],       // flat: [{id, name, parent_id, sort_order, color}]
   activeClip:   null,
   selectedCats: new Set(),
   tags:         [],       // free-form tag strings
   libraryFilter: '',
   descSlugs:    [],
+  selectMode:   false,
+  selectedIds:  new Set(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +36,8 @@ function switchView(name) {
   });
   $(`${name}-view`).classList.remove('hidden');
   if (name === 'library') loadLibrary();
+  if (name === 'review')  loadReview();
+  exitSelectMode();
 }
 
 // ── User avatar ────────────────────────────────────────────────────────────────
@@ -208,12 +214,163 @@ async function deleteClipById(clip) {
   }
 }
 
+// ── Flag for review ───────────────────────────────────────────────────────────
+async function toggleReviewFlag(clip) {
+  const flag = !clip.needs_review;
+  try {
+    await setReviewFlag(clip.id, flag);
+    clip.needs_review = flag;
+    // Update in all state arrays
+    for (const arr of [state.untagged, state.tagged, state.review]) {
+      const c = arr.find((x) => x.id === clip.id);
+      if (c) c.needs_review = flag;
+    }
+    if (!flag) state.review = state.review.filter((c) => c.id !== clip.id);
+    updateReviewBadge();
+    renderInboxGrid();
+    renderTaggedGrid();
+    if (state.view === 'review') renderReviewGrid();
+    toast(flag ? 'Flagged for review 🚩' : 'Review cleared', flag ? '' : 'success');
+  } catch (e) {
+    toast('Failed to update flag', 'error');
+  }
+}
+
+function updateReviewBadge() {
+  const count = state.review.filter((c) => c.needs_review).length
+    + state.untagged.filter((c) => c.needs_review).length
+    + state.tagged.filter((c) => c.needs_review).length;
+  // Deduplicate by id
+  const all = [...state.untagged, ...state.tagged, ...state.review];
+  const unique = new Map(all.map((c) => [c.id, c]));
+  const flagged = [...unique.values()].filter((c) => c.needs_review).length;
+  $('review-badge').textContent = flagged || '';
+}
+
+// ── Multi-select ───────────────────────────────────────────────────────────────
+function enterSelectMode() {
+  state.selectMode  = true;
+  state.selectedIds = new Set();
+  $('select-bar').classList.remove('hidden');
+  updateSelectBar();
+  renderInboxGrid();
+  renderTaggedGrid();
+}
+
+function exitSelectMode() {
+  state.selectMode  = false;
+  state.selectedIds = new Set();
+  $('select-bar').classList.add('hidden');
+  renderInboxGrid();
+  renderTaggedGrid();
+}
+
+function toggleSelectCard(id) {
+  state.selectedIds.has(id) ? state.selectedIds.delete(id) : state.selectedIds.add(id);
+  updateSelectBar();
+  document.querySelectorAll(`.clip-card[data-id="${id}"]`).forEach((el) => {
+    el.classList.toggle('selected', state.selectedIds.has(id));
+  });
+}
+
+function updateSelectBar() {
+  const n = state.selectedIds.size;
+  $('select-count').textContent = `${n} selected`;
+  $('select-delete-btn').disabled = n === 0;
+}
+
+async function deleteSelected() {
+  const ids = [...state.selectedIds];
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} clip${ids.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+  try {
+    await deleteClips(ids);
+    state.untagged = state.untagged.filter((c) => !ids.includes(c.id));
+    state.tagged   = state.tagged.filter((c)   => !ids.includes(c.id));
+    state.review   = state.review.filter((c)   => !ids.includes(c.id));
+    if (ids.includes(state.activeClip?.id)) closeTagger();
+    exitSelectMode();
+    renderInboxGrid();
+    renderTaggedGrid();
+    if (state.view === 'review') renderReviewGrid();
+    updateReviewBadge();
+    toast(`Deleted ${ids.length} clip${ids.length > 1 ? 's' : ''}`, 'success');
+  } catch (e) {
+    toast('Delete failed', 'error');
+    console.error(e);
+  }
+}
+
+// ── Review view ────────────────────────────────────────────────────────────────
+async function loadReview() {
+  const grid = $('review-grid');
+  grid.innerHTML = '<div class="spinner"></div>';
+  try {
+    state.review = await fetchReviewClips();
+    renderReviewGrid();
+    updateReviewBadge();
+  } catch (err) {
+    grid.innerHTML = `<p class="muted center-msg">Error: ${err.message}</p>`;
+  }
+}
+
+function renderReviewGrid() {
+  const grid = $('review-grid');
+  grid.innerHTML = '';
+  if (!state.review.length) {
+    grid.innerHTML = '<p class="muted center-msg">No clips flagged for review.</p>';
+    return;
+  }
+  for (const clip of state.review) {
+    const card = document.createElement('div');
+    card.className = 'clip-card review-card';
+    card.dataset.id = clip.id;
+    card.innerHTML = `
+      <div class="clip-thumb">${thumbHtml(clip)}</div>
+      <div class="clip-info">
+        <span class="clip-name">${clip.filename}</span>
+        <span class="clip-game">${clip.game || 'Untagged'}</span>
+        <span class="clip-date">${clip.date ?? ''}</span>
+      </div>
+      <div class="review-card-actions">
+        <button class="approve-btn">✓ Approve</button>
+        <button class="card-delete-btn review-delete" title="Delete clip">🗑</button>
+      </div>`;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.review-card-actions')) return;
+      openTagger(clip);
+    });
+    card.addEventListener('dblclick', (e) => { e.stopPropagation(); openVideoModal(clip); });
+    card.querySelector('.approve-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleReviewFlag(clip);
+    });
+    card.querySelector('.review-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteClipById(clip);
+    });
+    grid.appendChild(card);
+  }
+}
+
 // ── Inbox grid ─────────────────────────────────────────────────────────────────
 function renderInboxGrid() {
   $('inbox-badge').textContent = state.untagged.length || '';
   const grid = $('clip-grid');
-  grid.innerHTML = '';
 
+  // Rebuild the select-toggle button for inbox
+  let inboxSelBtn = $('inbox-select-btn');
+  if (!inboxSelBtn) {
+    inboxSelBtn = document.createElement('button');
+    inboxSelBtn.id        = 'inbox-select-btn';
+    inboxSelBtn.className = 'filter-btn select-toggle';
+    $('clip-grid-wrap').insertBefore(inboxSelBtn, grid);
+  }
+  inboxSelBtn.textContent = state.selectMode ? '✕ Cancel' : '☑ Select';
+  inboxSelBtn.className   = 'filter-btn select-toggle' + (state.selectMode ? ' active' : '');
+  inboxSelBtn.onclick     = () => state.selectMode ? exitSelectMode() : enterSelectMode();
+
+  grid.innerHTML = '';
   if (!state.untagged.length) {
     $('clip-grid-empty').classList.remove('hidden');
     return;
@@ -221,24 +378,41 @@ function renderInboxGrid() {
   $('clip-grid-empty').classList.add('hidden');
 
   for (const clip of state.untagged) {
-    const fileId = fileIdFromUrl(clip.drive_url);
-    const card   = document.createElement('div');
-    card.className     = 'clip-card' + (state.activeClip?.id === clip.id ? ' selected' : '');
-    card.dataset.id    = clip.id;
-    card.dataset.fileid = fileId ?? '';
+    const card = document.createElement('div');
+    const isSelected = state.selectedIds.has(clip.id);
+    card.className  = 'clip-card'
+      + (state.activeClip?.id === clip.id && !state.selectMode ? ' selected' : '')
+      + (isSelected ? ' multi-selected' : '')
+      + (clip.needs_review ? ' flagged' : '');
+    card.dataset.id = clip.id;
     card.innerHTML = `
       <div class="clip-thumb">${thumbHtml(clip)}</div>
+      ${state.selectMode ? '<div class="select-check">' + (isSelected ? '✓' : '') + '</div>' : ''}
       <div class="clip-info">
         <span class="clip-name">${clip.filename}</span>
         <span class="clip-date">${clip.date ?? ''}</span>
       </div>
-      <button class="card-delete-btn" title="Delete clip">🗑</button>`;
-    card.addEventListener('click',    () => openTagger(clip));
-    card.addEventListener('dblclick', (e) => { e.stopPropagation(); openVideoModal(clip); });
-    card.querySelector('.card-delete-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteClipById(clip);
+      ${!state.selectMode ? `
+        <button class="card-flag-btn${clip.needs_review ? ' active' : ''}" title="${clip.needs_review ? 'Remove flag' : 'Flag for review'}">🚩</button>
+        <button class="card-delete-btn" title="Delete clip">🗑</button>
+      ` : ''}`;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.card-flag-btn') || e.target.closest('.card-delete-btn')) return;
+      if (state.selectMode) { toggleSelectCard(clip.id); return; }
+      openTagger(clip);
     });
+    card.addEventListener('dblclick', (e) => {
+      if (state.selectMode) return;
+      e.stopPropagation(); openVideoModal(clip);
+    });
+    if (!state.selectMode) {
+      card.querySelector('.card-flag-btn').addEventListener('click', (e) => {
+        e.stopPropagation(); toggleReviewFlag(clip);
+      });
+      card.querySelector('.card-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation(); deleteClipById(clip);
+      });
+    }
     grid.appendChild(card);
   }
 }
@@ -295,6 +469,17 @@ function openTagger(clip) {
   $('game-input').value  = clip.game        ?? '';
   $('desc-input').value  = clip.description ?? '';
   $('notes-input').value = clip.notes       ?? '';
+
+  // Transcription box
+  const txBox  = $('transcription-box');
+  const txText = $('transcription-text');
+  if (clip.transcription) {
+    txText.textContent = clip.transcription;
+    txBox.classList.remove('hidden');
+  } else {
+    txText.textContent = '';
+    txBox.classList.add('hidden');
+  }
 
   renderCategorySection();
   renderTagInput();
@@ -425,6 +610,13 @@ function buildLibraryFilterBar() {
 
   mkBtn('All', '');
   for (const cat of tree) mkBtn(cat.name, cat.name);
+
+  // Select mode toggle
+  const selBtn = document.createElement('button');
+  selBtn.className   = 'filter-btn select-toggle' + (state.selectMode ? ' active' : '');
+  selBtn.textContent = state.selectMode ? '✕ Cancel' : '☑ Select';
+  selBtn.addEventListener('click', () => state.selectMode ? exitSelectMode() : enterSelectMode());
+  bar.appendChild(selBtn);
 }
 
 async function loadLibrary() {
@@ -448,9 +640,14 @@ function renderTaggedGrid() {
 
   for (const clip of state.tagged) {
     const card = document.createElement('div');
-    card.className = 'clip-card';
+    const isSelected = state.selectedIds.has(clip.id);
+    card.className  = 'clip-card'
+      + (isSelected ? ' multi-selected' : '')
+      + (clip.needs_review ? ' flagged' : '');
+    card.dataset.id = clip.id;
     card.innerHTML = `
       <div class="clip-thumb">${thumbHtml(clip)}</div>
+      ${state.selectMode ? '<div class="select-check">' + (isSelected ? '✓' : '') + '</div>' : ''}
       <div class="clip-info">
         <span class="clip-name">${clip.filename}</span>
         <span class="clip-game">${clip.game}</span>
@@ -460,16 +657,27 @@ function renderTaggedGrid() {
         </div>
         <span class="clip-date">${clip.date ?? ''}</span>
       </div>
-      <button class="card-delete-btn" title="Delete clip">🗑</button>`;
+      ${!state.selectMode ? `
+        <button class="card-flag-btn${clip.needs_review ? ' active' : ''}" title="${clip.needs_review ? 'Remove flag' : 'Flag for review'}">🚩</button>
+        <button class="card-delete-btn" title="Delete clip">🗑</button>
+      ` : ''}`;
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.card-delete-btn')) return;
+      if (e.target.closest('.card-flag-btn') || e.target.closest('.card-delete-btn')) return;
+      if (state.selectMode) { toggleSelectCard(clip.id); return; }
       openTagger(clip);
     });
-    card.addEventListener('dblclick', (e) => { e.stopPropagation(); openVideoModal(clip); });
-    card.querySelector('.card-delete-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteClipById(clip);
+    card.addEventListener('dblclick', (e) => {
+      if (state.selectMode) return;
+      e.stopPropagation(); openVideoModal(clip);
     });
+    if (!state.selectMode) {
+      card.querySelector('.card-flag-btn').addEventListener('click', (e) => {
+        e.stopPropagation(); toggleReviewFlag(clip);
+      });
+      card.querySelector('.card-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation(); deleteClipById(clip);
+      });
+    }
     grid.appendChild(card);
   }
 }
@@ -580,15 +788,18 @@ function toast(msg, type = '') {
 async function boot() {
   toast('Loading…');
 
-  const [untagged, slugs, taxonomy] = await Promise.all([
+  const [untagged, slugs, taxonomy, review] = await Promise.all([
     fetchUntaggedClips(),
     fetchDescriptions(),
     fetchTaxonomy(),
+    fetchReviewClips(),
   ]);
 
   state.untagged  = untagged;
   state.descSlugs = slugs;
   state.taxonomy  = taxonomy;
+  state.review    = review;
+  updateReviewBadge();
 
   populateDescSuggestions();
   buildLibraryFilterBar();
@@ -621,6 +832,9 @@ async function init() {
 
   $('modal-close').addEventListener('click', closeVideoModal);
   $('modal-backdrop').addEventListener('click', closeVideoModal);
+
+  $('select-delete-btn').addEventListener('click', deleteSelected);
+  $('select-cancel-btn').addEventListener('click', exitSelectMode);
 
   boot();
 }

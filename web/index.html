@@ -14,6 +14,7 @@
         Inbox <span id="inbox-badge" class="badge"></span>
       </button>
       <button class="nav-btn" data-view="library">Library</button>
+      <button class="nav-btn" data-view="review">Review <span id="review-badge" class="badge"></span></button>
       <button class="nav-btn" data-view="search">Search</button>
     </nav>
   </header>
@@ -33,6 +34,14 @@
   <div id="library-view" class="view hidden">
     <div id="library-filter-bar"></div>
     <div id="tagged-grid"></div>
+  </div>
+
+  <!-- ── Review view ── -->
+  <div id="review-view" class="view hidden">
+    <div id="review-header">
+      <p class="muted small">Clips flagged for your review. Approve to move to library, or delete.</p>
+    </div>
+    <div id="review-grid"></div>
   </div>
 
   <!-- ── Search view ── -->
@@ -87,6 +96,15 @@
     </div>
   </div>
 
+  <!-- ── Multi-select action bar ── -->
+  <div id="select-bar" class="hidden">
+    <span id="select-count">0 selected</span>
+    <div class="select-bar-actions">
+      <button id="select-delete-btn" class="danger">Delete selected</button>
+      <button id="select-cancel-btn">Cancel</button>
+    </div>
+  </div>
+
   <!-- ── Tagger panel (shared — works from inbox and library) ── -->
   <aside id="tagger-panel" class="hidden">
     <button id="panel-close" class="icon-btn" title="Close">✕</button>
@@ -98,6 +116,11 @@
         <a id="clip-drive-link" href="#" target="_blank" rel="noopener" class="drive-link">Open ↗</a>
       </div>
     </div>
+
+    <details id="transcription-box">
+      <summary>Transcription</summary>
+      <p id="transcription-text" class="muted small"></p>
+    </details>
 
     <div id="tag-form">
       <div class="field">

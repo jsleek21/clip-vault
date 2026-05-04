@@ -48,6 +48,16 @@ export const fetchTaxonomy = () =>
 export const deleteClip = (id) =>
   sb(`/clips?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
 
+export const deleteClips = (ids) =>
+  sb(`/clips?id=in.(${ids.join(',')})`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+
+// Review queue — clips flagged for owner double-check
+export const fetchReviewClips = () =>
+  sb('/clips?needs_review=eq.true&order=created_at.desc');
+
+export const setReviewFlag = (id, flag) =>
+  updateClip(id, { needs_review: flag });
+
 export async function createTaxonomyItem(name, parentId = null, color = null) {
   const rows = await sb('/taxonomy', {
     method: 'POST',
